@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dhaka Heat Vulnerability Index</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',Tahoma,sans-serif;overflow:hidden}
+    #map{width:100vw;height:100vh}
+
+    /* ── Title bar ── */
+    #title{
+      position:absolute;top:14px;left:50%;transform:translateX(-50%);
+      z-index:1000;background:rgba(12,20,44,.88);backdrop-filter:blur(8px);
+      color:#fff;padding:10px 26px;border-radius:30px;font-size:15px;
+      font-weight:600;letter-spacing:.4px;box-shadow:0 2px 14px rgba(0,0,0,.35);
+      border:1px solid rgba(255,255,255,.1);white-space:nowrap;pointer-events:none;
+    }
+    #title span{color:#fb923c}
+
+    /* ── Right panel ── */
+    #panel{
+      position:absolute;top:70px;right:12px;z-index:1000;
+      background:rgba(255,255,255,.97);backdrop-filter:blur(12px);
+      border-radius:14px;padding:18px;width:248px;
+      box-shadow:0 4px 24px rgba(0,0,0,.16);border:1px solid rgba(0,0,0,.06);
+    }
+    #panel h3{font-size:11px;text-transform:uppercase;letter-spacing:1px;
+      color:#9ca3af;margin-bottom:10px;font-weight:700}
+    #panel hr{border:none;border-top:1px solid #f3f4f6;margin:14px 0}
+
+    /* basemap buttons */
+    .bm-row{display:flex;gap:6px;margin-bottom:2px}
+    .bm-btn{flex:1;padding:7px 4px;border:2px solid #e5e7eb;border-radius:8px;
+      background:#fff;font-size:11px;cursor:pointer;font-weight:600;color:#374151;
+      transition:all .18s;text-align:center}
+    .bm-btn:hover:not(.active){background:#f9fafb;border-color:#d1d5db}
+    .bm-btn.active{border-color:#fb923c;background:#fff7ed;color:#c2410c}
+
+    /* opacity slider */
+    .row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .row .lbl{font-size:13px;font-weight:500;color:#374151}
+    .row .val{font-size:12px;font-weight:700;color:#fb923c;
+      background:#fff7ed;padding:2px 9px;border-radius:10px}
+    #opSlider{
+      width:100%;-webkit-appearance:none;height:4px;border-radius:2px;outline:none;
+      cursor:pointer;background:linear-gradient(to right,#fb923c 0%,#fb923c 70%,#e5e7eb 70%,#e5e7eb 100%);
+    }
+    #opSlider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;
+      border-radius:50%;background:#fff;border:3px solid #fb923c;cursor:pointer;
+      box-shadow:0 1px 5px rgba(0,0,0,.2)}
+
+    /* toggle */
+    .tog-row{display:flex;justify-content:space-between;align-items:center}
+    .tog-row .lbl{font-size:13px;font-weight:500;color:#374151}
+    .tog{position:relative;width:42px;height:22px}
+    .tog input{display:none}
+    .tog-s{position:absolute;inset:0;background:#d1d5db;border-radius:11px;cursor:pointer;transition:.2s}
+    .tog-s:before{content:'';position:absolute;width:16px;height:16px;border-radius:50%;
+      background:#fff;top:3px;left:3px;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+    .tog input:checked+.tog-s{background:#fb923c}
+    .tog input:checked+.tog-s:before{transform:translateX(20px)}
+
+    /* ── Legend ── */
+    #legend{
+      position:absolute;bottom:28px;left:12px;z-index:1000;
+      background:rgba(255,255,255,.97);backdrop-filter:blur(12px);
+      border-radius:12px;padding:14px 16px;
+      box-shadow:0 4px 20px rgba(0,0,0,.14);border:1px solid rgba(0,0,0,.06);min-width:175px;
+    }
+    #legend h4{font-size:11px;text-transform:uppercase;letter-spacing:1px;
+      color:#9ca3af;margin-bottom:10px;font-weight:700}
+    .leg-item{display:flex;align-items:center;gap:10px;padding:3px 0}
+    .leg-swatch{width:22px;height:14px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,.12)}
+    .leg-item span{font-size:12px;color:#374151;font-weight:500}
+
+    /* ── Hover info ── */
+    #infobar{
+      position:absolute;bottom:28px;left:50%;transform:translateX(-50%);
+      z-index:1000;background:rgba(12,20,44,.88);backdrop-filter:blur(8px);
+      color:#fff;padding:9px 20px;border-radius:10px;font-size:13px;
+      pointer-events:none;opacity:0;transition:opacity .18s;white-space:nowrap;
+    }
+    #infobar.on{opacity:1}
+
+    /* ── Loading / Error ── */
+    #loading{
+      position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      z-index:2000;background:#fff;padding:24px 32px;border-radius:14px;
+      text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.2);
+    }
+    #loading p{margin-top:10px;color:#6b7280;font-size:13px}
+    .spin{width:36px;height:36px;border:3px solid #f3f4f6;border-top:3px solid #fb923c;
+      border-radius:50%;animation:sp .7s linear infinite;margin:0 auto}
+    @keyframes sp{to{transform:rotate(360deg)}}
+
+    #errmsg{
+      display:none;position:absolute;top:75px;left:50%;transform:translateX(-50%);
+      z-index:2000;background:#fef2f2;border:1px solid #fca5a5;color:#b91c1c;
+      padding:12px 20px;border-radius:10px;font-size:13px;max-width:420px;text-align:center;
+    }
+
+    /* Leaflet zoom button polish */
+    .leaflet-control-zoom{border:none !important;box-shadow:0 2px 10px rgba(0,0,0,.15) !important}
+    .leaflet-control-zoom a{border-radius:8px !important;border:none !important;
+      color:#374151 !important;font-weight:700 !important}
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+<div id="title">🔥 Dhaka &nbsp;<span>Heat Vulnerability Index</span></div>
+
+<!-- Control panel -->
+<div id="panel">
+  <h3>Basemap</h3>
+  <div class="bm-row">
+    <button class="bm-btn active" onclick="setBase('osm',this)">🗺 Street</button>
+    <button class="bm-btn" onclick="setBase('sat',this)">🛰 Satellite</button>
+    <button class="bm-btn" onclick="setBase('dark',this)">🌙 Dark</button>
+  </div>
+  <hr>
+  <div class="row"><span class="lbl">HVI Opacity</span><span class="val" id="opVal">70%</span></div>
+  <input type="range" id="opSlider" min="0" max="100" value="70">
+  <hr>
+  <div class="tog-row">
+    <span class="lbl">Show HVI Layer</span>
+    <label class="tog">
+      <input type="checkbox" id="hviToggle" checked onchange="toggleLayer(this)">
+      <span class="tog-s"></span>
+    </label>
+  </div>
+</div>
+
+<!-- Legend -->
+<div id="legend">
+  <h4>Heat Vulnerability</h4>
+  <div class="leg-item"><div class="leg-swatch" style="background:#1a9641"></div><span>1 — Very Low</span></div>
+  <div class="leg-item"><div class="leg-swatch" style="background:#a6d96a"></div><span>2 — Low</span></div>
+  <div class="leg-item"><div class="leg-swatch" style="background:#ffffbf"></div><span>3 — Moderate</span></div>
+  <div class="leg-item"><div class="leg-swatch" style="background:#fdae61"></div><span>4 — High</span></div>
+  <div class="leg-item"><div class="leg-swatch" style="background:#d7191c"></div><span>5 — Very High</span></div>
+</div>
+
+<!-- Hover info -->
+<div id="infobar">Hover over an area for details</div>
+
+<!-- Loading / error -->
+<div id="loading"><div class="spin"></div><p>Loading HVI data…</p></div>
+<div id="errmsg"></div>
+
+<script>
+// ── Map init ──────────────────────────────────────────────────────────────────
+const map = L.map('map',{center:[23.78,90.40],zoom:12});
+map.zoomControl.setPosition('bottomright');
+
+// ── Basemaps ──────────────────────────────────────────────────────────────────
+const TILES = {
+  osm:  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          {attribution:'© OpenStreetMap contributors',maxZoom:19}),
+  sat:  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+          {attribution:'© Esri, Maxar, Earthstar Geographics',maxZoom:19}),
+  dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+          {attribution:'© OpenStreetMap contributors © CartoDB',maxZoom:19})
+};
+TILES.osm.addTo(map);
+let curBase = 'osm';
+
+function setBase(key, btn){
+  map.removeLayer(TILES[curBase]);
+  TILES[key].addTo(map);
+  curBase = key;
+  document.querySelectorAll('.bm-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── HVI palette ───────────────────────────────────────────────────────────────
+const CAT = {
+  1:{label:'Very Low', color:'#1a9641'},
+  2:{label:'Low',      color:'#a6d96a'},
+  3:{label:'Moderate', color:'#ffffbf'},
+  4:{label:'High',     color:'#fdae61'},
+  5:{label:'Very High',color:'#d7191c'}
+};
+
+let opacity = 0.70;
+let hviLayer = null;
+
+// Try several common field names for the HVI score
+function hviVal(props){
+  const v = props.hvi ?? props.HVI ?? props.hvi_class ?? props.HVI_CLASS
+          ?? props.vulnerability ?? props.VULN_CLASS ?? props.score ?? props.SCORE ?? 3;
+  return Math.round(Math.min(Math.max(Number(v),1),5));
+}
+
+function layerStyle(feat){
+  const v = hviVal(feat.properties);
+  return{fillColor:CAT[v].color, weight:1.2, color:'#fff', opacity:.7, fillOpacity:opacity};
+}
+
+// ── Feature interactions ──────────────────────────────────────────────────────
+const infobar = document.getElementById('infobar');
+
+function onEach(feat, lyr){
+  const p  = feat.properties;
+  const v  = hviVal(p);
+  const c  = CAT[v];
+  const nm = p.name||p.NAME||p.thana||p.THANA||p.ward||p.WARD||p.area||p.AREA||'(unnamed)';
+
+  // Extra props (first 4 non-standard ones)
+  const skip = new Set(['hvi','HVI','hvi_class','HVI_CLASS','vulnerability','VULN_CLASS',
+                        'score','SCORE','name','NAME','thana','THANA','ward','WARD','area','AREA']);
+  const extra = Object.entries(p).filter(([k])=>!skip.has(k)).slice(0,4)
+    .map(([k,vv])=>`<div style="font-size:11px;color:#6b7280;margin-top:3px">${k}: ${vv}</div>`).join('');
+
+  lyr.bindPopup(`
+    <div style="font-family:'Segoe UI',sans-serif;min-width:165px">
+      <div style="font-weight:700;font-size:14px;color:#1f2937;margin-bottom:7px">${nm}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:13px;height:13px;border-radius:3px;background:${c.color};border:1px solid rgba(0,0,0,.15);flex-shrink:0"></div>
+        <span style="font-size:13px;color:#374151">HVI <strong>${v}</strong> — ${c.label}</span>
+      </div>${extra}
+    </div>`,{maxWidth:270});
+
+  lyr.on({
+    mouseover(e){
+      e.target.setStyle({weight:3,color:'#1e293b',fillOpacity:Math.min(opacity+.15,1)});
+      e.target.bringToFront();
+      infobar.innerHTML = `<strong>${nm}</strong> &nbsp;·&nbsp; HVI ${v} — ${c.label}`;
+      infobar.classList.add('on');
+    },
+    mouseout(e){
+      hviLayer.resetStyle(e.target);
+      infobar.classList.remove('on');
+    },
+    click(e){
+      map.fitBounds(e.target.getBounds(),{padding:[60,60],maxZoom:15});
+    }
+  });
+}
+
+// ── Load GeoJSON ──────────────────────────────────────────────────────────────
+fetch('data/hvi.geojson')
+  .then(r=>{ if(!r.ok) throw new Error(`HTTP ${r.status} — file not found`); return r.json(); })
+  .then(data=>{
+    document.getElementById('loading').style.display='none';
+    hviLayer = L.geoJSON(data,{style:layerStyle, onEachFeature:onEach}).addTo(map);
+    if(hviLayer.getLayers().length) map.fitBounds(hviLayer.getBounds(),{padding:[20,20]});
+  })
+  .catch(err=>{
+    document.getElementById('loading').style.display='none';
+    const el = document.getElementById('errmsg');
+    el.style.display='block';
+    el.innerHTML=`⚠️ <strong>Could not load <code>data/hvi.geojson</code></strong><br>
+      Make sure the file exists and you are serving via HTTPS or a local server (not <code>file://</code>).<br>
+      <small style="opacity:.7">${err.message}</small>`;
+  });
+
+// ── Opacity slider ────────────────────────────────────────────────────────────
+const slider = document.getElementById('opSlider');
+const opVal  = document.getElementById('opVal');
+
+slider.addEventListener('input',function(){
+  opacity = this.value/100;
+  opVal.textContent = this.value+'%';
+  this.style.background =
+    `linear-gradient(to right,#fb923c 0%,#fb923c ${this.value}%,#e5e7eb ${this.value}%,#e5e7eb 100%)`;
+  if(hviLayer) hviLayer.setStyle(f=>({...layerStyle(f), fillOpacity:opacity}));
+});
+
+// ── Layer toggle ──────────────────────────────────────────────────────────────
+function toggleLayer(cb){
+  if(!hviLayer) return;
+  cb.checked ? map.addLayer(hviLayer) : map.removeLayer(hviLayer);
+}
+</script>
+</body>
+</html>
