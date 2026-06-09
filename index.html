@@ -180,34 +180,33 @@ function setBase(key, btn){
 
 // ── HVI palette ───────────────────────────────────────────────────────────────
 const CAT = {
-  1:{label:'Very Low', color:'#1a9641'},
-  2:{label:'Low',      color:'#a6d96a'},
-  3:{label:'Moderate', color:'#ffffbf'},
-  4:{label:'High',     color:'#fdae61'},
-  5:{label:'Very High',color:'#d7191c'}
+  'very low': {label:'Very Low',  color:'#1a9641'},
+  'low':      {label:'Low',       color:'#a6d96a'},
+  'moderate': {label:'Moderate',  color:'#ffffbf'},
+  'high':     {label:'High',      color:'#fdae61'},
+  'very high':{label:'Very High', color:'#d7191c'}
 };
 
 let opacity = 0.70;
 let hviLayer = null;
 
-// Try several common field names for the HVI score
 function hviVal(props){
-  const v = props.hvi ?? props.HVI ?? props.hvi_class ?? props.HVI_CLASS
-          ?? props.vulnerability ?? props.VULN_CLASS ?? props.score ?? props.SCORE ?? null;
-  if(v === null || v === '' || isNaN(Number(v))) return null;
-  return Math.round(Math.min(Math.max(Number(v),1),5));
+  const raw = props.HVI_Class ?? props.hvi_class ?? props.HVI_CLASS
+            ?? props.hvi ?? props.HVI ?? props.vulnerability ?? null;
+  if(!raw) return null;
+  return raw.toString().trim().toLowerCase();
 }
 
 function layerStyle(feat){
   const v = hviVal(feat.properties);
-  const unclassified = v === null;
+  const cat = CAT[v];
   return{
-    fillColor: unclassified ? '#94a3b8' : CAT[v].color,
+    fillColor: cat ? cat.color : '#94a3b8',
     weight: 1.2,
     color: '#fff',
     opacity: .7,
-    fillOpacity: unclassified ? 0.5 : opacity,
-    dashArray: unclassified ? '4' : null
+    fillOpacity: cat ? opacity : 0.5,
+    dashArray: cat ? null : '4'
   };
 }
 
@@ -217,18 +216,18 @@ const infobar = document.getElementById('infobar');
 function onEach(feat, lyr){
   const p  = feat.properties;
   const v  = hviVal(p);
-  const c  = v !== null ? CAT[v] : null;
+  const c  = CAT[v];
   const nm = p.name||p.NAME||p.thana||p.THANA||p.ward||p.WARD||p.area||p.AREA||'Grid cell';
 
-  const skip = new Set(['hvi','HVI','hvi_class','HVI_CLASS','vulnerability','VULN_CLASS',
-                        'score','SCORE','name','NAME','thana','THANA','ward','WARD','area','AREA']);
+  const skip = new Set(['HVI_Class','hvi_class','HVI_CLASS','hvi','HVI','vulnerability',
+                        'name','NAME','thana','THANA','ward','WARD','area','AREA']);
   const extra = Object.entries(p).filter(([k])=>!skip.has(k)).slice(0,4)
     .map(([k,vv])=>`<div style="font-size:11px;color:#6b7280;margin-top:3px">${k}: ${vv}</div>`).join('');
 
   const hviDisplay = c
     ? `<div style="display:flex;align-items:center;gap:8px">
         <div style="width:13px;height:13px;border-radius:3px;background:${c.color};border:1px solid rgba(0,0,0,.15);flex-shrink:0"></div>
-        <span style="font-size:13px;color:#374151">HVI <strong>${v}</strong> — ${c.label}</span>
+        <span style="font-size:13px;color:#374151">HVI: <strong>${c.label}</strong></span>
        </div>`
     : `<div style="font-size:13px;color:#9ca3af;font-style:italic">Not yet classified</div>`;
 
