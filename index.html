@@ -255,7 +255,7 @@ function onEach(feat, lyr){
 }
 
 // ── Load GeoJSON ──────────────────────────────────────────────────────────────
-fetch('data/HVI_2.geojson')
+fetch('data/HVI_3.geojson')
   .then(r=>{ if(!r.ok) throw new Error(`HTTP ${r.status} — file not found`); return r.json(); })
   .then(data=>{
     document.getElementById('loading').style.display='none';
@@ -266,7 +266,7 @@ fetch('data/HVI_2.geojson')
     document.getElementById('loading').style.display='none';
     const el = document.getElementById('errmsg');
     el.style.display='block';
-    el.innerHTML=`⚠️ <strong>Could not load <code>data/HVI_2.geojson</code></strong><br>
+    el.innerHTML=`⚠️ <strong>Could not load <code>data/HVI_3.geojson</code></strong><br>
       Make sure the file exists and you are serving via HTTPS or a local server (not <code>file://</code>).<br>
       <small style="opacity:.7">${err.message}</small>`;
   });
