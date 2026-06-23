@@ -120,7 +120,6 @@
   <div class="bm-row">
     <button class="bm-btn active" onclick="setBase('osm',this)">🗺 Street</button>
     <button class="bm-btn" onclick="setBase('sat',this)">🛰 Satellite</button>
-    <button class="bm-btn" onclick="setBase('sat2',this)">🛰 Satellite2</button>
     <button class="bm-btn" onclick="setBase('dark',this)">🌙 Dark</button>
   </div>
   <hr>
@@ -165,10 +164,6 @@ const TILES = {
           {attribution:'© OpenStreetMap contributors',maxZoom:19}),
   sat:  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
           {attribution:'© Esri, Maxar, Earthstar Geographics',maxZoom:19}),
-  sat2: L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}{r}.jpg', {
-  attribution: '© Stadia Maps © Airbus',
-  maxZoom: 20
-}),
   dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
           {attribution:'© OpenStreetMap contributors © CartoDB',maxZoom:19})
 };
