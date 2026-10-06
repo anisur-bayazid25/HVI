@@ -19,6 +19,10 @@ An interactive view of heat vulnerability across Dhaka, with **7,706 grid cells*
 
 Road-network results are estimates based on mapped connections and available one-way tags. Dotted links connect selected locations to the road network. Traffic, closures, turn restrictions and current facility availability are not included. Road and straight-line rankings may differ.
 
+## Mobile use
+
+Pinch to zoom, drag to pan, and tap **Explore** to change layers. Mobile drawing uses SVG and stable map dimensions to reduce intermittent rendering glitches. After this update, reload an already-open atlas tab to load the fix.
+
 ## Data sources
 
 Healthcare locations combine **Survey of Bangladesh, OpenStreetMap and Google Maps**. Roads come from **OpenStreetMap**. Other indicators include historical satellite-derived temperature, WorldPop population data, Google building footprints, poverty estimates and compiled environmental and settlement layers.

@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.1.1 — October 2026
+
+- Use SVG on phones and touch tablets to avoid large high-DPI canvas textures.
+- Remove blurred map panels and mobile zoom/fade transitions.
+- Keep mobile map height stable as browser controls appear and disappear.
+- Refresh map dimensions after resizing, tab restoration and returning from the background.
+- Reuse map shapes when switching variables or basemaps.
+
 ## v2.1.0 â€” October 2026
 
 - Rename to Dhaka Heat Vulnerability Atlas and simplify public copy.

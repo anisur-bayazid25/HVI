@@ -35,7 +35,20 @@ const ward=[
   metric('Hosp_count','Healthcare facility count','facilities','teal','Adaptive capacity','Analytical ward facility count; it can differ from the separate nearby-care dataset.'),
   metric('NTL_median','Nighttime light','source units','purple','Adaptive capacity','Supplied ward nighttime-light median.')];
 const state={scale:'grid',metric:'HVI',classes:new Set(CLASSES),top:false,opacity:.78,base:'light',datasets:{},meta:null,facilities:[],selected:null,origin:null,bins:[],ready:false};
-const map=L.map('map',{preferCanvas:true,zoomControl:false,center:[23.78,90.4],zoom:12});
+// SVG avoids a large high-DPI canvas texture on phones and touch tablets.
+const mobileRendering=matchMedia('(max-width: 999px), (pointer: coarse)').matches;
+const map=L.map('map',{preferCanvas:!mobileRendering,renderer:mobileRendering?L.svg({padding:.1}):L.canvas({padding:.1}),
+  zoomAnimation:!mobileRendering,fadeAnimation:!mobileRendering,markerZoomAnimation:!mobileRendering,
+  inertia:!mobileRendering,zoomControl:false,center:[23.78,90.4],zoom:12});
+let resizeTimer;
+function refreshMapSize(){clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{
+  if(document.hidden)return;
+  map.invalidateSize({pan:false,animate:false,debounceMoveend:true});
+  if(colorLayer)colorLayer.setStyle(style);
+},120);}
+const mapSizeObserver=new ResizeObserver(refreshMapSize);mapSizeObserver.observe($('map'));
+window.addEventListener('pageshow',refreshMapSize);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshMapSize();});
 L.control.zoom({position:'bottomright'}).addTo(map);L.control.scale({position:'bottomright',imperial:false}).addTo(map);
 map.attributionControl.addAttribution('Road data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>');
 map.createPane('selection');map.getPane('selection').style.zIndex=450;map.getPane('selection').style.pointerEvents='none';
@@ -45,7 +58,7 @@ const tiles={light:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/serv
   dark:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',{maxZoom:16,attribution:'Tiles © Esri — Esri, HERE, Garmin, OpenStreetMap contributors'})};
 tiles.light.addTo(map);
 let careRequest=0,routingWorker=null,routeJob=0;const routePromises=new Map();
-let colorLayer=null,selection=L.layerGroup().addTo(map),careLayer=L.layerGroup().addTo(map),facilityLayer=L.layerGroup(),toastTimer,switchToken=0;
+let colorLayer=null,colorKey='',selection=L.layerGroup().addTo(map),careLayer=L.layerGroup().addTo(map),facilityLayer=L.layerGroup(),toastTimer,switchToken=0;
 const metrics=()=>[...common,...(state.scale==='grid'?grid:ward)], current=()=>metrics().find(m=>m.key===state.metric)||common[0];
 const features=()=>state.datasets[state.scale]?.features||[];
 const visible=()=>features().filter(f=>visibleFeature(f.properties,state.classes,state.top,features().length));
@@ -61,13 +74,18 @@ function updateScaleUI(){for(const s of ['grid','ward']){$(s+'Btn').classList.to
 }
 function style(f){const p=f.properties,m=current(),index=state.metric==='HVI'?CLASSES.indexOf(p.HVI_Class):binIndex(p[m.key],state.bins),colors=state.metric==='HVI'?HVI_COLORS:PALETTES[m.palette];
   return {fillColor:index<0?'#aab8c0':colors[index],fillOpacity:state.opacity,weight:state.scale==='ward'?1.2:.35,color:state.base==='dark'?'#24394a':'#fff',opacity:.65};}
-function draw(){if(!state.ready)return;const m=current();state.bins=makeBins(features().map(f=>f.properties[m.key]));if(colorLayer)map.removeLayer(colorLayer);
-  const shown=visible();colorLayer=L.geoJSON({type:'FeatureCollection',features:shown},{style,onEachFeature(f,layer){
-    const p=f.properties;layer.bindTooltip(`${esc(p.name)} · ${esc(m.label)}: ${formatMetric(p[m.key],m)}${m.unit==='0–1'?'':' '+esc(m.unit)}`,{sticky:true});
+function featureTooltip(f){const p=f.properties,m=current();return `${esc(p.name)} · ${esc(m.label)}: ${formatMetric(p[m.key],m)}${m.unit==='0–1'?'':' '+esc(m.unit)}`;}
+function draw(){if(!state.ready)return;const m=current();state.bins=makeBins(features().map(f=>f.properties[m.key]));
+  const shown=visible(),key=JSON.stringify([state.scale,[...state.classes].sort(),state.top]);
+  if(colorLayer&&key===colorKey){colorLayer.setStyle(style);colorLayer.eachLayer(layer=>layer.setTooltipContent(featureTooltip(layer.feature)));}
+  else{if(colorLayer)map.removeLayer(colorLayer);colorKey=key;
+  colorLayer=L.geoJSON({type:'FeatureCollection',features:shown},{style,onEachFeature(f,layer){
+    layer.bindTooltip(featureTooltip(f),{sticky:true});
     layer.on('mouseover',()=>layer.setStyle({weight:state.scale==='ward'?2.5:1.1,color:'#18324a',fillOpacity:Math.min(1,state.opacity+.12)}));
     layer.on('mouseout',()=>colorLayer.resetStyle(layer));
     layer.on('click',e=>{L.DomEvent.stopPropagation(e);if($('careMode').checked)showCare([e.latlng.lng,e.latlng.lat]);else inspect(f);});
-  }});if($('layerToggle').checked)colorLayer.addTo(map);
+  }});}
+  if($('layerToggle').checked)colorLayer.addTo(map);
   $('visibleCount').textContent=number(shown.length,0);$('meanScore').textContent=shown.length?number(shown.reduce((sum,f)=>sum+f.properties.HVI,0)/shown.length,3):'—';
   $('metricNote').textContent=m.note;$('downloadCsv').disabled=!shown.length;renderLegend();
   if(state.selected&&!shown.some(f=>f.properties.unit_id===state.selected.properties.unit_id)){clearSelection();}
@@ -135,7 +153,7 @@ async function switchScale(scale){if(!state.ready||scale===state.scale)return;co
   catch(e){toast('Could not load this scale. Please try again.');console.error(e);}
   finally{$('status').hidden=true;$('gridBtn').disabled=$('wardBtn').disabled=false;$('metric').disabled=false;$('searchForm').querySelectorAll('input,button').forEach(el=>el.disabled=false);}
 }
-function cityExtent(){const bounds=L.geoJSON(state.datasets.grid).getBounds();map.fitBounds(bounds,{padding:[30,30]});}
+function cityExtent(){const bounds=L.geoJSON(state.datasets.grid).getBounds();map.stop();map.fitBounds(bounds,{animate:false,padding:[30,30]});}
 function shareURL(){const u=new URL(location.href);u.search='';const center=map.getCenter();u.searchParams.set('scale',state.scale);u.searchParams.set('metric',state.metric);u.searchParams.set('lat',center.lat.toFixed(5));u.searchParams.set('lng',center.lng.toFixed(5));u.searchParams.set('z',map.getZoom());u.searchParams.set('classes',[...state.classes].join(','));if(state.top)u.searchParams.set('top','1');u.searchParams.set('base',state.base);u.searchParams.set('opacity',Math.round(state.opacity*100));u.searchParams.set('layer',$('layerToggle').checked?'1':'0');u.searchParams.set('facilities',$('facilityToggle').checked?'1':'0');u.searchParams.set('type',$('facilityType').value);u.searchParams.set('distance',$('distanceMode').value);u.searchParams.set('rings',$('radiusToggle').checked?'1':'0');if(state.origin){u.searchParams.set('care',state.origin.point.join(','));}else if(state.selected)u.searchParams.set('area',state.selected.properties.unit_id);return u.toString();}
 function setBase(base){if(!tiles[base])return;map.removeLayer(tiles[state.base]);state.base=base;tiles[base].addTo(map);document.querySelectorAll('[data-base]').forEach(b=>{b.classList.toggle('active',b.dataset.base===base);b.setAttribute('aria-pressed',String(b.dataset.base===base));});draw();}
 async function restoreURL(){const q=new URLSearchParams(location.search);if(q.get('scale')==='ward')await switchScale('ward');if(metrics().some(m=>m.key===q.get('metric')))state.metric=q.get('metric');$('metric').value=state.metric;
