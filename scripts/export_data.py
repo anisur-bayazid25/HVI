@@ -29,9 +29,9 @@ def write(path, data):
 def export(root, out):
     results = root / 'October 2026/results_combined_70PA'
     sources = []
-    meta = {'version': '2.0.0', 'results_date': '2026-10-05', 'release_date': '2026-10-06',
+    meta = {'version': '2.1.0', 'results_date': '2026-10-05', 'release_date': '2026-10-06',
             'method': 'Primary_70_PA', 'scales': {},
-            'healthcare_source': 'Survey of Bangladesh: supplied updated facility layer; survey currency and operational status unverified',
+            'healthcare_source': 'Compiled Survey of Bangladesh, OpenStreetMap and Google Maps locations; collection dates and operational status unverified',
             'distance_method': 'Great-circle straight-line distance (Haversine), not road distance or travel time'}
     def source(p):
         sources.append({'path': p.relative_to(root).as_posix(), 'sha256': hashlib.sha256(p.read_bytes()).hexdigest()})
@@ -97,10 +97,13 @@ def export(root, out):
         seen.add(token)
         assert 89 < point.x < 92 and 22 < point.y < 25
         facilities.append({'type':'Feature','properties':{'id':f'sob-{len(facilities)+1}', 'name':name,
-            'type':p.get('F_Type','').strip() or 'Unspecified facility', 'source':'Survey of Bangladesh'},
+            'type':p.get('F_Type','').strip() or 'Unspecified facility', 'source':'Survey of Bangladesh, OpenStreetMap and Google Maps'},
             'geometry':{'type':'Point','coordinates':clean_coords([point.x,point.y])}})
     write(out / 'healthcare.geojson', {'type':'FeatureCollection','features':facilities})
-    meta['healthcare_count'] = len(facilities); meta['sources'] = sources
+    meta['healthcare_count'] = len(facilities)
+    audit_dir = out.parent / 'qa'
+    audit_dir.mkdir(exist_ok=True)
+    write(audit_dir / 'source-audit.json', sources)
     write(out / 'metadata.json', meta)
     print(json.dumps({'scales':meta['scales'], 'healthcare_count':len(facilities)}, indent=2))
 

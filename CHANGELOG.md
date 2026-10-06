@@ -1,8 +1,17 @@
 # Changelog
 
+## v2.1.0 — October 2026
+
+- Rename to Dhaka Heat Vulnerability Atlas and simplify public copy.
+- Add Anisur Rahman Bayazid's copyright, contact, CHORUS Project / Innovation Fund 2 and FCDO credits.
+- Correct healthcare attribution to Survey of Bangladesh, OpenStreetMap and Google Maps.
+- Add estimated road-network routes and nearest-five distance ranking, respecting available one-way directions.
+- Distinguish mapped road distance from estimated access links and straight-line proximity.
+- Update documentation with data sources and years.
+
 ## v2.0.0 — 6 October 2026
 
-Dhaka Heat Atlas replaces the initial single-layer webmap with an interactive explorer of the completed October Primary_70_PA results.
+The initial single-layer webmap becomes an interactive explorer of October results.
 
 - Replace June grid scores and geometry with the completed 5 October results. All 7,706 analytical grid IDs are preserved; 1,497 cells change HVI class.
 - Add 134 ward units with independently fitted scores and all source indicators.

@@ -9,4 +9,5 @@ jobs:
         with:
           node-version: '22'
       - run: node --check app.js
+      - run: node --check routing-worker.js
       - run: npm test
